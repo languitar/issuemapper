@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import abc
+import argparse
+import configparser
 import urllib.parse
 
 import icalendar
@@ -52,6 +54,23 @@ class Issue(object):
 class IssueSource(object):
     __metaclass__ = abc.ABCMeta
 
+    @classmethod
+    @abc.abstractmethod
+    def create(cls, name, config):
+        """
+        Factory method to create an appropriate instance of the source for the
+        provided options.
+        Args:
+            name (str):
+                user-defined name for the source
+            config (configparser.SectionProxy):
+                config parser section with the configuration for this source
+        Raises:
+            ValueError:
+                Configuration for this source is inappropriate
+        """
+        pass
+
     @abc.abstractmethod
     def issues(self):
         pass
@@ -67,12 +86,14 @@ class RedmineIssueSource(IssueSource):
         return '{}-{}@{}'.format(
             issue_id, self.parsed_url.path, self.parsed_url.netloc)
 
+    @abc.abstractmethod
+    def _provide_issues(self):
+        pass
+
     def issues(self):
-        issues = self.redmine.issue.filter(assigned_to_id='me',
-                                           status_id='open')
 
         source_issues = []
-        for issue in issues:
+        for issue in self._provide_issues():
             uid = self._make_id(issue.id)
             author = self.redmine.user.get(issue.author.id)
             source_issues.append(Issue(
@@ -90,7 +111,24 @@ class RedmineIssueSource(IssueSource):
         return source_issues
 
 
+class RedmineAssignedIssueSource(RedmineIssueSource):
+
+    @classmethod
+    def create(cls, name, config):
+        kwargs = {}
+        if not config.getboolean('verify_ssl', fallback=True):
+            kwargs['requests'] = {'verify': False}
+        return cls(Redmine(config['host'], key=config['key'], **kwargs))
+
+    def _provide_issues(self):
+        return self.redmine.issue.filter(assigned_to_id='me',
+                                         status_id='open')
+
 class GithubIssueSource(IssueSource):
+
+    @classmethod
+    def create(cls, name, config):
+        return cls(Github(config['token']))
 
     def __init__(self, github):
         self.github = github
@@ -124,12 +162,22 @@ class GithubIssueSource(IssueSource):
 class IssueSink(object):
     __metaclass__ = abc.ABCMeta
 
+    @classmethod
+    @abc.abstractmethod
+    def create(cls, config):
+        pass
+
     @abc.abstractmethod
     def generate(self, issues):
         pass
 
 
 class ICalIssueSink(IssueSink):
+
+    @classmethod
+    @abc.abstractmethod
+    def create(cls, config):
+        return cls()
 
     def generate(self, issues):
 
@@ -162,3 +210,43 @@ class ICalIssueSink(IssueSink):
 
         return calendar.to_ical()
 
+
+def main():
+
+    argument_parser = argparse.ArgumentParser(
+        description='Collects issue tracking information from multiple '
+                    'sources and exports these issues into other formats',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    argument_parser.add_argument(
+        'config',
+        type=argparse.FileType('r'),
+        help='INI-style config file describing sinks and sources.')
+
+    args = argument_parser.parse_args()
+
+    config = configparser.ConfigParser()
+    config.read_file(args.config)
+
+    sources = []
+    source_section = [s for s in config.sections() if s.startswith('source:')]
+    for section in source_section:
+        name = section[len('source:'):]
+        class_name = config[section]['class']
+        klass = globals()[class_name]
+        source = klass.create(name, config[section])
+        sources.append(source)
+
+    class_name = config['sink']['class']
+    klass = globals()[class_name]
+    sink = klass.create(config['sink'])
+
+    issues = []
+    for source in sources:
+        issues.extend(source.issues())
+
+    print(sink.generate(issues).decode('utf-8'))
+
+
+if __name__ == '__main__':
+    main()
