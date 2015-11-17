@@ -208,7 +208,30 @@ class ICalIssueSink(IssueSink):
             todo.add('CLASS', 'PUBLIC')
             calendar.add_component(todo)
 
-        return calendar.to_ical()
+        return calendar.to_ical().decode('utf-8')
+
+
+class CsvIssueSink(IssueSink):
+
+    @classmethod
+    @abc.abstractmethod
+    def create(cls, config):
+        return cls()
+
+    def generate(self, issues):
+        lines = []
+        lines.append('uid,project,summary,due,author,url')
+        for issue in issues:
+            lines.append(
+                '"{uid}","{project}","{summary}",'
+                '"{due}","{author}","{url}"'.format(
+                    uid=issue.uid,
+                    project=issue.project,
+                    summary=issue.title,
+                    due=issue.due.isoformat() if issue.due else '',
+                    author=issue.author[0] if issue.author else '',
+                    url=issue.url))
+        return '\n'.join(lines)
 
 
 def main():
@@ -245,7 +268,7 @@ def main():
     for source in sources:
         issues.extend(source.issues())
 
-    print(sink.generate(issues).decode('utf-8'))
+    print(sink.generate(issues))
 
 
 if __name__ == '__main__':
