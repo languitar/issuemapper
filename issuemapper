@@ -9,6 +9,7 @@ import icalendar
 
 from github import Github
 from redmine import Redmine
+from taskw import TaskWarrior
 
 
 class Issue(object):
@@ -232,6 +233,31 @@ class CsvIssueSink(IssueSink):
                     author=issue.author[0] if issue.author else '',
                     url=issue.url))
         return '\n'.join(lines)
+
+
+class TaskWarriorIssueSink(IssueSink):
+
+    @classmethod
+    @abc.abstractmethod
+    def create(cls, config):
+        kwargs = {}
+        if 'taskrc' in config:
+            kwargs['config_filename'] = config['taskrc']
+        return cls(TaskWarrior(**kwargs))
+
+    def __init__(self, task):
+        self.task = task
+
+    def generate(self, issues):
+
+        for issue in issues:
+            kwargs = {}
+            if issue.due:
+                kwargs['due'] = issue.due.isoformat()
+            self.task.task_add(issue.title,
+                               project=issue.project,
+                               entry=issue.created.isoformat(),
+                               **kwargs)
 
 
 def main():

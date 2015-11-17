@@ -4,7 +4,11 @@ setup(
     name='issuemapper',
     version='0.1-dev',
 
-    install_requires=['icalendar', 'PyGithub', 'python-redmine', 'certifi'],
+    install_requires=['icalendar',
+                      'PyGithub',
+                      'python-redmine',
+                      'certifi',
+                      'taskw'],
 
     scripts=['issuemapper'],
 
