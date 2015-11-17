@@ -125,6 +125,30 @@ class RedmineAssignedIssueSource(RedmineIssueSource):
         return self.redmine.issue.filter(assigned_to_id='me',
                                          status_id='open')
 
+
+class RedmineProjectIssueSource(RedmineIssueSource):
+
+    @classmethod
+    def create(cls, name, config):
+        kwargs = {}
+        if not config.getboolean('verify_ssl', fallback=True):
+            kwargs['requests'] = {'verify': False}
+        projects = [p.strip() for p in config['projects'].split(',')]
+        return cls(Redmine(config['host'], key=config['key'], **kwargs),
+                   projects)
+
+    def __init__(self, redmine, projects):
+        RedmineIssueSource.__init__(self, redmine)
+        self.projects = projects
+
+    def _provide_issues(self):
+        issues = []
+        for project in self.projects:
+            issues.extend(self.redmine.issue.filter(project_id=project,
+                                                    status_id='open'))
+        return issues
+
+
 class GithubIssueSource(IssueSource):
 
     @classmethod
