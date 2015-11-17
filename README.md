@@ -12,7 +12,7 @@ python3 setup.py install [--user]
 ## Usage
 
 ```sh
-issuemapper <config file ini>
+issuemapper <config file ini> > /target/file.ics
 ```
 
 This command could be placed in a cron job to have e.g. a constantly up-to-date iCal file with VTODO entries for every issue.
@@ -42,6 +42,37 @@ token=gihubAPItokenabcdef
 [sink]
 class=ICalIssueSink
 ```
+
+## Sinks
+
+### ICalIssueSink
+
+Creates a single iCal export via stdout with all open issues being VTODO components.
+
+Options:
+
+### CsvIssueSink
+
+Creates a CSV file via stdout with all issues.
+
+Options:
+
+### TaskWarriorIssueSink
+
+Exports issues to [Taskwarrior](https://taskwarrior.org/).
+Issues directly end up in the Taskwarrior directory.
+There is no stdout output.
+Issues are only added to Taskwarrior.
+You need to manually purge issues before.
+It is advisable to use a custom `taskrc` file specifying a custom storage directory which can be deleted before every sync.
+
+Options:
+* `taskrc` (optional): custom `taskrc` file to use when interacting with Taskwarrior
+
+## Client Applications
+
+For iCal export:
+* [Thunderbird Lightning](https://www.mozilla.org/en-US/projects/calendar/): add the generated ics file as a new remote calendar using a `file://` URL.
 
 ## License
 
