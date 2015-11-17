@@ -38,7 +38,7 @@ class Issue(object):
         self.updated = updated
         self.author = author
         self.percent_done = percent_done
-        self.start = due
+        self.start = start
         self.due = due
 
     def __str__(self):
